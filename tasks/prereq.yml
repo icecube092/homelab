@@ -1,0 +1,33 @@
+- name: Check supported OS
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution in ['Debian', 'Ubuntu']
+    fail_msg: >-
+      Unsupported operating system:
+      {{ ansible_distribution }} {{ ansible_distribution_version }}
+
+- name: Check supported architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in ['x86_64', 'aarch64', 'arm64', 'armv7l', 'armv6l']
+    fail_msg: >-
+      Unsupported architecture:
+      {{ ansible_architecture }}
+
+- name: Load server variables
+  ansible.builtin.include_vars:
+    file: "../vars/{{ inventory_hostname }}.yml"
+
+- name: Update system
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+    update_cache: true
+

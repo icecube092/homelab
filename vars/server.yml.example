@@ -1,0 +1,44 @@
+local_apps_path: ~
+
+nginx:
+  name: nginx
+  domain: <your_domain_here>
+
+s3:
+  key_id: <your_s3_key_id>
+  app_key: <your_s3_app_key>
+  endpoint: <your_s3_endpoint>
+  region: <your_s3_region>
+
+immich:
+  name: immich
+  version: v3
+  upload_location: "{{local_apps_path}}/immich/uploads"
+  api_key: '<your_api_key>' # needed for data migration
+
+  db_username: postgres
+  db_password: postgres
+  db_database_name: immich
+  db_storage_type: SSD # HDD or SSD
+  db_data_location: "{{local_apps_path}}/immich/postgres-data"
+
+  walg_s3_prefix: <path_to_an_s3_directory> # s3://<bucket>/walg/immich
+  walg_libsodium_key: <your_walg_libsodium_key> # 32-byte base64-encoded key for WAL-G encryption
+
+  ## Uncomment for resource limits, otherwise no limits
+  # resources:
+  #   server:
+  #     memory: "6G"
+  #     cpu_cores: "4"
+  #   ml:
+  #     memory: "4G"
+  #     cpu_cores: "2"
+  #   redis:
+  #     memory: "256M"
+  #     cpu_cores: "0.5"
+  #   db:
+  #     memory: "2G"
+  #     cpu_cores: "2"
+
+certbot:
+  email: <your_email_here>

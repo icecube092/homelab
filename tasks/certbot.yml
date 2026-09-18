@@ -1,0 +1,41 @@
+- name: Install Certbot
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+    update_cache: true
+
+- name: Create Certbot deploy hook directory
+  ansible.builtin.file:
+    path: /etc/letsencrypt/renewal-hooks/deploy
+    state: directory
+    mode: '0755'
+
+- name: Configure nginx reload after certificate renewal
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+    content: |
+      #!/bin/sh
+      systemctl reload nginx
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Obtain SSL certificate
+  ansible.builtin.command:
+    cmd: >
+      certbot certonly
+      --nginx
+      -d "{{ service_name }}.{{ nginx.domain }}"
+      --non-interactive
+      --agree-tos
+      -m "{{ certbot.email }}"
+  args:
+    creates: "/etc/letsencrypt/live/{{ service_name }}.{{ nginx.domain }}/fullchain.pem"
+
+- name: Enable Certbot renewal timer
+  ansible.builtin.systemd:
+    name: certbot.timer
+    enabled: true
+    state: started

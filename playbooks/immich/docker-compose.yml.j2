@@ -1,0 +1,95 @@
+name: immich
+
+services:
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:{{immich.version}}
+    volumes:
+      - {{immich.upload_location}}:/data
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    ports:
+      - '127.0.0.1:2283:2283'
+    depends_on:
+      - redis
+      - database
+    restart: always
+    healthcheck:
+      disable: false
+{% if immich.resources.server is defined %}
+    deploy:
+      resources:
+        limits:
+          cpus: {{ immich.resources.server.cpu_cores }}
+          memory: {{ immich.resources.server.memory }}
+{% endif %}
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:{{immich.version}}
+    volumes:
+      - model-cache:/cache
+    env_file:
+      - .env
+    restart: always
+    healthcheck:
+      disable: false
+{% if immich.resources.ml is defined %}
+    deploy:
+      resources:
+        limits:
+          cpus: {{ immich.resources.ml.cpu_cores }}
+          memory: {{ immich.resources.ml.memory }}
+{% endif %}
+
+  redis:
+    container_name: immich_redis
+    image: docker.io/valkey/valkey:9@sha256:70739f85ad2ee01a726a965584a0f94895f01b0c60b3cc8b0aeef11eaa6888cf
+    healthcheck:
+      test: redis-cli ping | grep -q PONG || exit 1
+    restart: always
+{% if immich.resources.redis is defined %}
+    deploy:
+      resources:
+        limits:
+          cpus: {{ immich.resources.redis.cpu_cores }}
+          memory: {{ immich.resources.redis.memory }}
+{% endif %}
+
+  database:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:16-vectorchord1.1.1-pgvector0.8.5@sha256:c4ce87168fcb98144fcd3daac197edabba62fde374625cc94287efc592167657
+    environment:
+      POSTGRES_PASSWORD: {{immich.db_password}}
+      POSTGRES_USER: {{immich.db_username}}
+      POSTGRES_DB: {{immich.db_database_name}}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      DB_STORAGE_TYPE: {{immich.db_storage_type}}
+      WALG_S3_PREFIX: {{immich.walg_s3_prefix}}
+      AWS_ACCESS_KEY_ID: {{s3.key_id}}
+      AWS_SECRET_ACCESS_KEY: {{s3.app_key}}
+      AWS_ENDPOINT: {{s3.endpoint}}
+      AWS_REGION: {{s3.region}}
+      AWS_S3_FORCE_PATH_STYLE: "true"
+      WALG_COMPRESSION_METHOD: zstd
+      WALG_LIBSODIUM_KEY: {{immich.walg_libsodium_key}}
+      WALG_LIBSODIUM_KEY_TRANSFORM: base64
+    volumes:
+      - {{immich.db_data_location}}:/var/lib/postgresql/data
+      - /opt/wal-g/wal-g:/usr/local/bin/wal-g:ro
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+    shm_size: 128mb
+    restart: always
+    healthcheck:
+      disable: false
+{% if immich.resources.db is defined %}
+    deploy:
+      resources:
+        limits:
+          cpus: {{ immich.resources.db.cpu_cores }}
+          memory: {{ immich.resources.db.memory }}
+{% endif %}
+
+volumes:
+  model-cache:

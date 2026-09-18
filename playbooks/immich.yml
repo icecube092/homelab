@@ -1,0 +1,66 @@
+- hosts: web
+
+  tasks:
+    - import_tasks: ../tasks/prereq.yml
+    - import_tasks: ../tasks/docker.yml
+    - import_tasks: ../tasks/nginx.yml
+
+    - name: Set service name
+      set_fact:
+        service_name: immich
+
+    - name: Create directory for immich
+      file:
+        path: "{{local_apps_path}}/immich"
+        state: directory
+        mode: '0755'
+        owner: "{{ansible_user}}"
+        group: "{{ansible_user}}"
+
+    - name: Copy docker-compose
+      template:
+        src: immich/docker-compose.yml.j2
+        dest: "{{local_apps_path}}/immich/docker-compose.yml"
+        owner: "{{ansible_user}}"
+        group: "{{ansible_user}}"
+        mode: '0644'
+
+    - name: Copy .env file
+      template:
+        src: immich/.env.j2
+        dest: "{{local_apps_path}}/immich/.env"
+        owner: "{{ansible_user}}"
+        group: "{{ansible_user}}"
+        mode: '0644'
+
+    - name: Create immich uploads directory
+      file:
+        path: "{{ immich.upload_location }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ansible_user}}"
+        group: "{{ansible_user}}"
+
+    - name: Create immich postgres data directory
+      file:
+        path: "{{ immich.db_data_location }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ansible_user}}"
+        group: "{{ansible_user}}"
+
+    - name: Start immich
+      command: docker compose -f "{{local_apps_path}}/immich/docker-compose.yml" up -d
+
+    - import_tasks: ../tasks/certbot.yml
+
+    - name: Copy nginx immich config
+      template:
+        src: nginx/immich.conf.j2
+        dest: /etc/nginx/conf.d/immich.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Reload nginx
+      command: nginx -s reload

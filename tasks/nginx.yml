@@ -1,0 +1,52 @@
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+
+- name: Install nginx stream module
+  ansible.builtin.apt:
+    name: libnginx-mod-stream
+    state: present
+    update_cache: true
+
+- name: Start nginx
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Create nginx stream config directory
+  ansible.builtin.file:
+    path: /etc/nginx/stream-conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure nginx stream SNI router
+  ansible.builtin.template:
+    src: nginx/sni-router.conf.j2
+    dest: /etc/nginx/stream-conf.d/sni-router.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Add nginx stream configuration
+  ansible.builtin.blockinfile:
+    path: /etc/nginx/nginx.conf
+    insertafter: EOF
+    marker: "# {mark} ANSIBLE MANAGED STREAM"
+    block: |
+      stream {
+          include /etc/nginx/stream-conf.d/*.conf;
+      }
+
+- name: Check nginx configuration
+  command:
+    cmd: nginx -t
+
+- name: Reload nginx
+  systemd:
+    name: nginx
+    state: reloaded
