@@ -1,0 +1,149 @@
+name: matrix
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    container_name: matrix-postgres
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+        reservations:
+          memory: 256M
+    environment:
+      POSTGRES_USER: {{synapse.db_username}}
+      POSTGRES_PASSWORD: {{synapse.db_password}}
+      POSTGRES_DB: {{synapse.db_database_name}}
+{% if synapse.backups.wal-g.enabled %}
+      AWS_ACCESS_KEY_ID: {{synapse.backups.s3.key_id}}
+      AWS_SECRET_ACCESS_KEY: {{synapse.backups.s3.app_key}}
+      AWS_ENDPOINT: {{synapse.backups.s3.endpoint}}
+      AWS_REGION: {{synapse.backups.s3.region}}
+      AWS_S3_FORCE_PATH_STYLE: "true"
+      WALG_S3_PREFIX: {{synapse.backups.wal-g.walg_s3_prefix}}
+      WALG_COMPRESSION_METHOD: zstd
+      WALG_LIBSODIUM_KEY: {{synapse.backups.wal-g.libsodium_key}}
+      WALG_LIBSODIUM_KEY_TRANSFORM: base64
+{% endif %}
+    volumes:
+      - {{synapse.db_data_location}}:/var/lib/postgresql/data
+{% if synapse.backups.wal-g.enabled %}
+      - /opt/wal-g/wal-g:/usr/local/bin/wal-g:ro
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+{% endif %}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - matrix
+
+  synapse:
+    image: matrixdotorg/synapse:{{synapse.version}}
+    container_name: matrix-synapse
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          memory: 512M
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SYNAPSE_CONFIG_DIR: /etc/matrix-synapse
+      SYNAPSE_CONFIG_PATH: /etc/matrix-synapse/homeserver.yaml
+    volumes:
+      - {{local_apps_path}}/synapse/homeserver.yaml:/etc/matrix-synapse/homeserver.yaml
+      - {{local_apps_path}}/synapse/log.yml:/etc/matrix-synapse/log.yml
+      - {{synapse.upload_location}}:/var/lib/matrix-synapse/media #TODO: sudo chown -R 991:991 data/synapse-media
+{% if synapse.apps.mautrix-telegram.enabled %}
+      - ./mautrix-telegram/registration.yaml:/etc/matrix-synapse/conf.d/mautrix-registrations.yaml:ro
+      - ./mautrix-telegram/doublepuppeting.yaml:/etc/matrix-synapse/conf.d/doublepuppeting.yaml:ro
+{% endif %}
+    ports:
+      - "127.0.0.1:8008:8008"
+    networks:
+      - matrix
+
+{% if synapse.apps.mautrix-telegram.enabled %}
+  mautrix-telegram:
+    image: dock.mau.dev/mautrix/telegram:{{synapse.apps.mautrix-telegram.version}}
+    container_name: matrix-mautrix-telegram
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.7"
+          memory: 512M
+        reservations:
+          memory: 128M
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./mautrix-telegram/config.yaml:/data/config.yaml
+      - ./mautrix-telegram/registration.yaml:/data/registration.yaml
+    ports:
+      - "127.0.0.1:29317:29317"
+    networks:
+      - matrix
+{% endif %}
+
+  livekit:
+    image: livekit/livekit-server:v1.13.6
+    container_name: matrix-livekit
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 768M
+        reservations:
+          memory: 128M
+    depends_on:
+      synapse:
+        condition: service_started
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit/config.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "127.0.0.1:7880:7880/tcp"
+      - "7881:7881/tcp"
+      - "20000-20100:20000-20100/udp"
+    networks:
+      - matrix
+
+  livekit-jwt:
+    image: ghcr.io/element-hq/lk-jwt-service@sha256:822f0c03a3bdd924da92afc2e8ec59de5dda17af42d32e71e11f269c3517abf7
+    container_name: matrix-livekit-jwt
+    hostname: auth-server
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+        reservations:
+          memory: 32M
+    environment:
+      LIVEKIT_JWT_PORT: 8080
+      LIVEKIT_URL: wss://rtc.synapse.{{nginx.domain}}/livekit/sfu
+      LIVEKIT_KEY: devkey
+      LIVEKIT_SECRET: {{synapse.livekit.jwt_secret}}
+      LIVEKIT_FULL_ACCESS_HOMESERVERS: synapse.{{nginx.domain}}
+    ports:
+      - "127.0.0.1:8070:8080"
+    depends_on:
+      - livekit
+    networks:
+      - matrix
+
+networks:
+  matrix:
+    driver: bridge

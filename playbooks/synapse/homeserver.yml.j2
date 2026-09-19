@@ -1,0 +1,105 @@
+# Configuration file for Synapse.
+#
+# This is a YAML file: see [1] for a quick introduction. Note in particular
+# that *indentation is important*: all the elements of a list or dictionary
+# should have the same indentation.
+#
+# [1] https://docs.ansible.com/ansible/latest/reference_appendices/YAMLSyntax.html
+#
+# For more information on how to configure Synapse, including a complete accounting of
+# each option, go to docs/usage/configuration/config_documentation.md or
+# https://element-hq.github.io/synapse/latest/usage/configuration/config_documentation.html
+#
+# This is set in /etc/matrix-synapse/conf.d/server_name.yaml for Debian installations.
+# server_name: "SERVERNAME"
+
+public_baseurl: "https://synapse.{{nginx.domain}}"
+pid_file: "/var/run/matrix-synapse.pid"
+listeners:
+  - port: 8008
+    type: http
+    tls: false
+    bind_addresses: ['0.0.0.0']
+    x_forwarded: true
+    resources:
+      - names: [ client, federation ]
+        compress: false
+
+log_config: "/etc/matrix-synapse/log.yml"
+media_store_path: /var/lib/matrix-synapse/media
+max_upload_size: 500M
+media_retention:
+  local_media_lifetime: 14d
+  remote_media_lifetime: 14d
+signing_key_path: "/etc/matrix-synapse/homeserver.signing.key"
+trusted_key_servers:
+  - server_name: "matrix.org"
+suppress_key_server_warning: true
+
+enable_registration: true
+enable_registration_without_verification: true
+
+macaroon_secret_key: ""
+registration_shared_secret: ""
+
+database:
+  name: psycopg2
+  args:
+    user: {{synapse.db_username}}
+    password: {{synapse.db_password}}
+    database: {{synapse.db_database_name}}
+    host: "postgres"
+    port: 5432
+    cp_min: 3
+    cp_max: 8
+    keepalives_idle: 10
+    keepalives_interval: 10
+    keepalives_count: 3
+
+presence:
+  enabled: false
+
+caches:
+  global_factor: 0.75
+  expire_caches: true
+  cache_entry_ttl: 30m
+  cache_autotuning:
+    max_cache_memory_usage: 768M
+    target_cache_memory_usage: 384M
+    min_cache_ttl: 5m
+  sync_response_cache_duration: 30s
+
+app_service_config_files:
+  - /etc/matrix-synapse/conf.d/mautrix-registrations.yaml
+  - /etc/matrix-synapse/conf.d/doublepuppeting.yaml
+
+redaction_retention_period: 1d
+forgotten_room_retention_period: 14d
+
+experimental_features:
+  # MSC3266: Room summary API. Used for knocking over federation
+  msc3266_enabled: true
+  # MSC4222: needed for syncv2 state_after. This allows clients to
+  # correctly track the state of the room.
+  msc4222_enabled: true
+  # MSC4140: Delayed events are required for proper call participation signalling. If disabled it is very likely that you end up with stuck calls in Matrix rooms
+  msc4140_enabled: true
+
+# The maximum allowed duration by which sent events can be delayed, as
+# per MSC4140.
+max_event_delay_duration: 24h
+
+rc_message:
+  # This needs to match at least e2ee key sharing frequency plus a bit of headroom
+  # Note key sharing events are bursty
+  per_second: 0.5
+  burst_count: 30
+  # This needs to match at least the heart-beat frequency plus a bit of headroom
+  # Currently the heart-beat is every 5 seconds which translates into a rate of 0.2s
+rc_delayed_event_mgmt:
+  per_second: 1
+  burst_count: 20
+
+
+server_name: synapse.{{nginx.domain}}
+report_stats: false

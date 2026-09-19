@@ -1,0 +1,85 @@
+- hosts: web
+
+  tasks:
+    - import_tasks: ../tasks/prereq.yml
+    - import_tasks: ../tasks/docker.yml
+    - import_tasks: ../tasks/nginx.yml
+
+    - name: Set service name
+      set_fact:
+        service_name: synapse
+        restic_backup_path: "{{synapse.upload_location}}"
+
+    - name: Create directory for synapse
+      file:
+        path: "{{local_apps_path}}/synapse"
+        state: directory
+        owner: {{ansible_user}}
+        group: {{ansible_user}}
+        mode: '0755'
+
+    - name: Create synapse media directory
+      file:
+        path: "{{synapse.upload_location}}"
+        state: directory
+        owner: {{ansible_user}}
+        group: {{ansible_user}}
+        mode: '0755'
+
+    - name: Create synapse postgres data directory
+      file:
+        path: "{{synapse.db_data_location}}"
+        state: directory
+        owner: {{ansible_user}}
+        group: {{ansible_user}}
+        mode: '0755'
+
+    - name: Copy docker-compose
+      template:
+        src: synapse/docker-compose.yml.j2
+        dest: "{{local_apps_path}}/synapse/docker-compose.yml"
+        owner: {{ansible_user}}
+        group: {{ansible_user}}
+        mode: '0644'
+
+    - name: Copy homeserver.yaml
+      template:
+        src: synapse/homeserver.yml.j2
+        dest: "{{local_apps_path}}/synapse/homeserver.yaml"
+        owner: {{ansible_user}}
+        group: {{ansible_user}}
+        mode: '0644'
+
+    - name: Copy log.yml
+      template:
+        src: synapse/log.yml
+        dest: "{{local_apps_path}}/synapse/log.yml"
+        owner: {{ansible_user}}
+        group: {{ansible_user}}
+        mode: '0644'
+
+    - name: Configure Restic
+      import_tasks: ../tasks/restic.yml
+      when: vars[service_name].backups.restic.enabled | default(false) | bool
+
+    - import_tasks: ../tasks/certbot.yml
+
+    - name: Copy nginx synapse config
+      template:
+        src: nginx/synapse.conf.j2
+        dest: "/etc/nginx/conf.d/synapse.conf"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded
+
+    - name: Start synapse
+      command: docker compose -f "{{local_apps_path}}/synapse/docker-compose.yml" up -d
+
+    - name: Configure WAL-G
+      import_tasks: ../tasks/wal-g.yml
+      when: vars[service_name].backups.wal-g.enabled | default(false) | bool

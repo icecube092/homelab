@@ -66,12 +66,12 @@ services:
       POSTGRES_DB: {{immich.db_database_name}}
       POSTGRES_INITDB_ARGS: '--data-checksums'
       DB_STORAGE_TYPE: {{immich.db_storage_type}}
+{% if immich.wal-g.enabled %}
       AWS_ACCESS_KEY_ID: {{immich.backups.s3.key_id}}
       AWS_SECRET_ACCESS_KEY: {{immich.backups.s3.app_key}}
       AWS_ENDPOINT: {{immich.backups.s3.endpoint}}
       AWS_REGION: {{immich.backups.s3.region}}
       AWS_S3_FORCE_PATH_STYLE: "true"
-{% if immich.wal-g.enabled %}
       WALG_COMPRESSION_METHOD: zstd
       WALG_S3_PREFIX: {{immich.walg_s3_prefix}}
       WALG_LIBSODIUM_KEY: {{immich.walg_libsodium_key}}
