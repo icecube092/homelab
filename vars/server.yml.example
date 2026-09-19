@@ -4,16 +4,10 @@ nginx:
   name: nginx
   domain: <your_domain_here>
 
-s3:
-  key_id: <your_s3_key_id>
-  app_key: <your_s3_app_key>
-  endpoint: <your_s3_endpoint>
-  region: <your_s3_region>
-
 immich:
   name: immich
   version: v3
-  upload_location: "{{local_apps_path}}/immich/uploads"
+  upload_location: "{{local_apps_path}}/immich/library"
   api_key: '<your_api_key>' # needed for data migration
 
   db_username: postgres
@@ -22,16 +16,34 @@ immich:
   db_storage_type: SSD # HDD or SSD
   db_data_location: "{{local_apps_path}}/immich/postgres-data"
 
-  walg_s3_prefix: <path_to_an_s3_directory> # s3://<bucket>/walg/immich
-  walg_libsodium_key: <your_walg_libsodium_key> # 32-byte base64-encoded key for WAL-G encryption
+  backups:
+    s3:
+      key_id: <your_s3_key_id>
+      app_key: <your_s3_app_key>
+      endpoint: <your_s3_endpoint>
+      region: <your_s3_region>
+      bucket_name: <your_s3_bucket_name>
+    wal-g:
+      enabled: true
+      version: "3.0.9"
+      walg_s3_prefix: <path_to_an_s3_directory> # s3://<bucket>/walg/immich
+      libsodium_key: <your_walg_libsodium_key> # 32-byte base64-encoded key for WAL-G encryption
+    restic:
+      enabled: true
+      password: <your_restic_password>
+      access_key_id: "{{immich.backups.s3.key_id}}"
+      secret_access_key: "{{immich.backups.s3.app_key}}"
+      repository: "s3:{{immich.backups.s3.endpoint}}/{{immich.backups.s3.bucket_name}}/restic/immich"
+      backup_path: "{{immich.upload_location}}"
+      cron_schedule: "0 3 * * *"
 
-  ## Uncomment for resource limits, otherwise no limits
+  ## Uncomment for recommended resource limits, otherwise no limits.
   # resources:
   #   server:
   #     memory: "6G"
-  #     cpu_cores: "4"
+  #     cpu_cores: "2"
   #   ml:
-  #     memory: "4G"
+  #     memory: "2G"
   #     cpu_cores: "2"
   #   redis:
   #     memory: "256M"

@@ -8,6 +8,7 @@
     - name: Set service name
       set_fact:
         service_name: immich
+        restic_backup_path: "{{immich.upload_location}}"
 
     - name: Create directory for immich
       file:
@@ -49,8 +50,9 @@
         owner: "{{ansible_user}}"
         group: "{{ansible_user}}"
 
-    - name: Start immich
-      command: docker compose -f "{{local_apps_path}}/immich/docker-compose.yml" up -d
+    - name: Configure Restic
+      import_tasks: ../tasks/restic.yml
+      when: vars[service_name].backups.restic.enabled | default(false) | bool
 
     - import_tasks: ../tasks/certbot.yml
 
@@ -64,3 +66,10 @@
 
     - name: Reload nginx
       command: nginx -s reload
+
+    - name: Start immich
+      command: docker compose -f "{{local_apps_path}}/immich/docker-compose.yml" up -d
+
+    - name: Configure WAL-G
+      import_tasks: ../tasks/wal-g.yml
+      when: vars[service_name].backups.wal-g.enabled | default(false) | bool

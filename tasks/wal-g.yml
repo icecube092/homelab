@@ -1,0 +1,39 @@
+- name: Set WAL-G architecture
+  ansible.builtin.set_fact:
+    wal_g_arch: >-
+      {{
+        {
+          'x86_64': 'amd64',
+          'aarch64': 'aarch64'
+        }.get(ansible_architecture, '')
+      }}
+
+- name: Check supported WAL-G architecture
+  ansible.builtin.assert:
+    that:
+      - wal_g_arch != ''
+    fail_msg: "Unsupported architecture: {{ ansible_architecture }}"
+
+- name: Download WAL-G
+  ansible.builtin.get_url:
+    url: "https://github.com/wal-g/wal-g/releases/download/latest/wal-g-pg-20.04-{{ wal_g_arch }}"
+    dest: /opt/wal-g/wal-g
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Verify WAL-G
+  ansible.builtin.command:
+    cmd: /opt/wal-g/wal-g --version
+
+- name: Exec SQL to enable WAL archiving
+  ansible.builtin.command:
+    cmd: |
+      docker exec -i {{service_name}}_postgres bash -c
+      "psql -U {{vars[service_name].db_username}} -d {{vars[service_name].db_database_name}} -c
+      \"ALTER SYSTEM SET archive_mode = 'on';
+      ALTER SYSTEM SET archive_command = 'wal-g wal-push %p';
+      ALTER SYSTEM SET archive_timeout = '300';
+      ALTER SYSTEM SET wal_level = 'replica';\"
+      "
+
