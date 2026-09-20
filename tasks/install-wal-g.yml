@@ -1,0 +1,47 @@
+- name: Set WAL-G architecture
+  ansible.builtin.set_fact:
+    wal_g_arch: >-
+      {{
+        {
+          'x86_64': 'amd64',
+          'aarch64': 'aarch64'
+        }.get(ansible_architecture, '')
+      }}
+
+- name: Check supported WAL-G architecture
+  ansible.builtin.assert:
+    that:
+      - wal_g_arch != ''
+    fail_msg: "Unsupported architecture: {{ ansible_architecture }}"
+
+- name: Verify WAL-G
+  ansible.builtin.command:
+    cmd: /opt/wal-g/wal-g --version
+  register: verify_walg
+  changed_when: false
+  failed_when: false
+
+- name: Create WAL-G directory
+  ansible.builtin.file:
+    path: /opt/wal-g
+    state: directory
+    mode: "0755"
+
+- name: Download WAL-G
+  ansible.builtin.get_url:
+    url: "https://github.com/wal-g/wal-g/releases/download/v3.0.9/wal-g-pg-20.04-{{ wal_g_arch }}"
+    dest: /opt/wal-g/wal-g
+    owner: "{{ansible_user}}"
+    group: "{{ansible_user}}"
+    mode: "0755"
+  when: verify_walg.rc != 0
+
+- name: Make WAL-G executable
+  command:
+    cmd: chmod +x /opt/wal-g/wal-g
+  when: verify_walg.rc != 0
+
+- name: Verify WAL-G
+  ansible.builtin.command:
+    cmd: /opt/wal-g/wal-g --version
+  when: verify_walg.rc != 0

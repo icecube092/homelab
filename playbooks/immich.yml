@@ -67,9 +67,13 @@
     - name: Reload nginx
       command: nginx -s reload
 
+    - name: Install WAL-G
+      import_tasks: ../tasks/install-wal-g.yml
+      when: vars[service_name].backups.walg.enabled | default(false) | bool
+
     - name: Start immich
       command: docker compose -f "{{local_apps_path}}/immich/docker-compose.yml" up -d
 
-    - name: Configure WAL-G
-      import_tasks: ../tasks/wal-g.yml
+    - name: Enable WAL-G
+      import_tasks: ../tasks/enable-wal-g.yml
       when: vars[service_name].backups.walg.enabled | default(false) | bool
