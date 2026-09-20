@@ -1,11 +1,70 @@
 local_apps_path: ~
 
+global:
+  s3: # By default, all services use the same S3. You can override this in the service-specific section.
+    key_id: <your_s3_key_id>
+    app_key: <your_s3_app_key>
+    endpoint: <your_s3_endpoint>
+    region: <your_s3_region>
+    bucket_name: <your_s3_bucket_name>
+
 nginx:
-  name: nginx
   domain: <your_domain_here>
 
+synapse:
+  version: v1.159.0
+  upload_location: "{{local_apps_path}}/synapse/media"
+  db_username: postgres
+  db_password: postgres
+  db_database_name: synapse
+  db_data_location: "{{local_apps_path}}/synapse/postgres-data"
+  backups:
+    s3: # change if you want to use a different S3 bucket for Synapse backups
+      key_id: "{{global.s3.key_id}}"
+      app_key: "{{global.s3.app_key}}"
+      endpoint: "{{global.s3.endpoint}}"
+      region: "{{global.s3.region}}"
+      bucket_name: "{{global.s3.bucket_name}}"
+    wal-g:
+      enabled: true
+      walg_s3_prefix: s3://{{synapse.backups.s3.bucket_name}}/walg/synapse
+      libsodium_key: {{ lookup('ansible.builtin.password', 'secrets/synapse-walg-libsodium.key length=64 chars=hexdigits') }} # 32-byte base64-encoded key for WAL-G encryption, stored in secrets/
+      max_base_bakups: 2 # max number of base backups to keep
+    restic:
+      enabled: true
+      password: {{ lookup('ansible.builtin.password', 'secrets/synapse-restic.key length=32 chars=ascii_letters,digits') }} # 32-character password for Restic, stored in secrets/
+      access_key_id: "{{synapse.backups.s3.key_id}}"
+      secret_access_key: "{{synapse.backups.s3.app_key}}"
+      repository: "s3:{{synapse.backups.s3.endpoint}}/{{synapse.backups.s3.bucket_name}}/restic/synapse"
+      backup_path: "{{synapse.upload_location}}"
+      cron_schedule: "0 4 * * *"
+    livekit:
+      jwt_secret: <your_livekit_jwt_secret> # 32-byte base64-encoded key for LiveKit JWT authentication
+    apps:
+      mautrix-telegram:
+        enabled: false
+        version: v0.2608.0
+
+  # # Uncomment for recommended resource limits, otherwise no limits.
+  # resources:
+  #   synapse:
+  #     memory: "2G"
+  #     cpu_cores: "2"
+  #   db:
+  #     memory: "2G"
+  #     cpu_cores: "2"
+  #   livekit:
+  #     memory: "768G"
+  #     cpu_cores: "0.5"
+  #   livekit-jwt:
+  #     memory: "128M"
+  #     cpu_cores: "0.5"
+  #   apps:
+  #     mautrix-telegram:
+  #       memory: "512M"
+  #       cpu_cores: "0.7"
+
 immich:
-  name: immich
   version: v3
   upload_location: "{{local_apps_path}}/immich/library"
   api_key: '<your_api_key>' # needed for data migration
@@ -17,20 +76,20 @@ immich:
   db_data_location: "{{local_apps_path}}/immich/postgres-data"
 
   backups:
-    s3:
-      key_id: <your_s3_key_id>
-      app_key: <your_s3_app_key>
-      endpoint: <your_s3_endpoint>
-      region: <your_s3_region>
-      bucket_name: <your_s3_bucket_name>
+    s3: # change if you want to use a different S3 bucket for Immich backups
+      key_id: "{{global.s3.key_id}}"
+      app_key: "{{global.s3.app_key}}"
+      endpoint: "{{global.s3.endpoint}}"
+      region: "{{global.s3.region}}"
+      bucket_name: "{{global.s3.bucket_name}}"
     wal-g:
       enabled: true
-      version: "3.0.9"
-      walg_s3_prefix: <path_to_an_s3_directory> # s3://<bucket>/walg/immich
-      libsodium_key: <your_walg_libsodium_key> # 32-byte base64-encoded key for WAL-G encryption
+      walg_s3_prefix: s3://{{immich.backups.s3.bucket_name}}/walg/immich
+      libsodium_key: {{ lookup('ansible.builtin.password', 'secrets/immich-walg-libsodium.key length=64 chars=hexdigits') }} # 32-byte base64-encoded key for WAL-G encryption, stored in secrets/
+      max_base_bakups: 2 # max number of base backups to keep
     restic:
       enabled: true
-      password: <your_restic_password>
+      password: {{ lookup('ansible.builtin.password', 'secrets/immich-restic.key length=32 chars=ascii_letters,digits') }} # 32-character password for Restic, stored in secrets/
       access_key_id: "{{immich.backups.s3.key_id}}"
       secret_access_key: "{{immich.backups.s3.app_key}}"
       repository: "s3:{{immich.backups.s3.endpoint}}/{{immich.backups.s3.bucket_name}}/restic/immich"

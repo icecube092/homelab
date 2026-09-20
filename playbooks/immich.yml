@@ -58,7 +58,7 @@
 
     - name: Copy nginx immich config
       template:
-        src: nginx/immich.conf.j2
+        src: immich/nginx.conf.j2
         dest: /etc/nginx/conf.d/immich.conf
         owner: root
         group: root

@@ -37,3 +37,25 @@
       ALTER SYSTEM SET wal_level = 'replica';\"
       "
 
+- name: Create WAL-G base backup script
+  template:
+    dest: "{{local_apps_path}}/{{service_name}}/wal-g-backup.sh"
+    content: |
+      #!/bin/bash
+      docker exec -u {{vars[service_name].db_username}} {{service_name}}_postgres bash wal-g backup-push /var/lib/postgresql/data
+      docker exec -u {{vars[service_name].db_username}} {{service_name}}_postgres bash wal-g delete retain FULL {{vars[service_name].backups.wal-g.max_base_bakups}} --confirm
+      docker exec -u {{vars[service_name].db_username}} {{service_name}}_postgres bash wal-g wal-verify integrity
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create WAL-G cron job
+  ansible.builtin.cron:
+    name: "WAL-G backup for {{ service_name }}"
+    user: "{{ansible_user}}"
+    job: "{{local_apps_path}}/{{service_name}}/wal-g-backup.sh"
+    minute: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[0] }}"
+    hour: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[1] }}"
+    day: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[2] }}"
+    month: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[3] }}"
+    weekday: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[4] }}"

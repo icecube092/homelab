@@ -1,17 +1,17 @@
-name: matrix
+name: synapse
 
 services:
   postgres:
     image: postgres:16-bookworm
-    container_name: matrix-postgres
+    container_name: synapse-postgres
     restart: unless-stopped
+{% if synapse.resources.db %}
     deploy:
       resources:
         limits:
-          cpus: "1.0"
-          memory: 2G
-        reservations:
-          memory: 256M
+          cpus: {{synapse.resources.db.cpu_cores}}
+          memory: {{synapse.resources.db.memory}}
+{% endif %}
     environment:
       POSTGRES_USER: {{synapse.db_username}}
       POSTGRES_PASSWORD: {{synapse.db_password}}
@@ -43,15 +43,15 @@ services:
 
   synapse:
     image: matrixdotorg/synapse:{{synapse.version}}
-    container_name: matrix-synapse
+    container_name: synapse
     restart: unless-stopped
+{% if synapse.resources.synapse %}
     deploy:
       resources:
         limits:
-          cpus: "2.0"
-          memory: 2G
-        reservations:
-          memory: 512M
+          cpus: {{synapse.resources.synapse.cpu_cores}}
+          memory: {{synapse.resources.synapse.memory}}
+{% endif %}
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,13 +74,15 @@ services:
 {% if synapse.apps.mautrix-telegram.enabled %}
   mautrix-telegram:
     image: dock.mau.dev/mautrix/telegram:{{synapse.apps.mautrix-telegram.version}}
-    container_name: matrix-mautrix-telegram
+    container_name: synapse-mautrix-telegram
     restart: unless-stopped
+{% if synapse.resources.apps.mautrix-telegram %}
     deploy:
       resources:
         limits:
-          cpus: "0.7"
-          memory: 512M
+          cpus: {{synapse.resources.apps.mautrix-telegram.cpu_cores}}
+          memory: {{synapse.resources.apps.mautrix-telegram.memory}}
+{% endif %}
         reservations:
           memory: 128M
     depends_on:
@@ -97,15 +99,15 @@ services:
 
   livekit:
     image: livekit/livekit-server:v1.13.6
-    container_name: matrix-livekit
+    container_name: synapse-livekit
     restart: unless-stopped
+{% if synapse.resources.livekit %}
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 768M
-        reservations:
-          memory: 128M
+          cpus: {{synapse.resources.livekit.cpu_cores}}
+          memory: {{synapse.resources.livekit.memory}}
+{% endif %}
     depends_on:
       synapse:
         condition: service_started
@@ -121,16 +123,16 @@ services:
 
   livekit-jwt:
     image: ghcr.io/element-hq/lk-jwt-service@sha256:822f0c03a3bdd924da92afc2e8ec59de5dda17af42d32e71e11f269c3517abf7
-    container_name: matrix-livekit-jwt
+    container_name: synapse-livekit-jwt
     hostname: auth-server
     restart: unless-stopped
+{% if synapse.resources.livekit-jwt %}
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 128M
-        reservations:
-          memory: 32M
+          cpus: {{synapse.resources.livekit-jwt.cpu_cores}}
+          memory: {{synapse.resources.livekit-jwt.memory}}
+{% endif %}
     environment:
       LIVEKIT_JWT_PORT: 8080
       LIVEKIT_URL: wss://rtc.synapse.{{nginx.domain}}/livekit/sfu

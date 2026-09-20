@@ -66,7 +66,7 @@
 
     - name: Copy nginx synapse config
       template:
-        src: nginx/synapse.conf.j2
+        src: synapse/nginx.conf.j2
         dest: "/etc/nginx/conf.d/synapse.conf"
         owner: root
         group: root
