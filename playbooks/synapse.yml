@@ -82,4 +82,4 @@
 
     - name: Configure WAL-G
       import_tasks: ../tasks/wal-g.yml
-      when: vars[service_name].backups.wal-g.enabled | default(false) | bool
+      when: vars[service_name].backups.walg.enabled | default(false) | bool

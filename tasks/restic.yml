@@ -10,8 +10,8 @@
   environment:
     RESTIC_REPOSITORY: "{{ vars[service_name].backups.restic.repository }}"
     RESTIC_PASSWORD: "{{ vars[service_name].backups.restic.password }}"
-    AWS_ACCESS_KEY_ID="{{ vars[service_name].backups.restic.access_key_id }}"
-    AWS_SECRET_ACCESS_KEY="{{ vars[service_name].backups.restic.secret_access_key }}"
+    AWS_ACCESS_KEY_ID: "{{ vars[service_name].backups.restic.access_key_id }}"
+    AWS_SECRET_ACCESS_KEY: "{{ vars[service_name].backups.restic.secret_access_key }}"
   register: restic_check
   changed_when: false
   failed_when: false
@@ -23,8 +23,8 @@
   environment:
     RESTIC_REPOSITORY: "{{ vars[service_name].backups.restic.repository }}"
     RESTIC_PASSWORD: "{{ vars[service_name].backups.restic.password }}"
-    AWS_ACCESS_KEY_ID="{{ vars[service_name].backups.restic.access_key_id }}"
-    AWS_SECRET_ACCESS_KEY="{{ vars[service_name].backups.restic.secret_access_key }}"
+    AWS_ACCESS_KEY_ID: "{{ vars[service_name].backups.restic.access_key_id }}"
+    AWS_SECRET_ACCESS_KEY: "{{ vars[service_name].backups.restic.secret_access_key }}"
   when:
     - restic_check.rc != 0
     - "'does not exist' in restic_check.stderr"
@@ -32,17 +32,8 @@
 
 - name: Create Restic backup script
   template:
+    src: restic/backup.sh.j2
     dest: "{{local_apps_path}}/{{service_name}}/restic-backup.sh"
-    content: |
-      #!/bin/bash
-      set -e
-
-      export RESTIC_REPOSITORY="{{ vars[service_name].backups.restic.repository }}"
-      export RESTIC_PASSWORD="{{ vars[service_name].backups.restic.password }}"
-      export AWS_ACCESS_KEY_ID="{{ vars[service_name].backups.restic.access_key_id }}"
-      export AWS_SECRET_ACCESS_KEY="{{ vars[service_name].backups.restic.secret_access_key }}"
-
-      restic backup "{{ vars[service_name].backups.restic.backup_path }}"
     owner: "{{ansible_user}}"
     group: "{{ansible_user}}"
     mode: '0755'
@@ -52,7 +43,7 @@
   ansible.builtin.cron:
     name: "Restic backup for {{ service_name }}"
     user: "{{ansible_user}}"
-    job: "{{local_apps_path}}/{{service_name}}/restic-backup.sh"
+    job: "{{local_apps_path}}/{{service_name}}/restic-backup.sh >> /var/log/restic-{{ service_name }}.log 2>&1"
     minute: "{{ vars[service_name].backups.restic.cron_schedule.split(' ')[0] }}"
     hour: "{{ vars[service_name].backups.restic.cron_schedule.split(' ')[1] }}"
     day: "{{ vars[service_name].backups.restic.cron_schedule.split(' ')[2] }}"

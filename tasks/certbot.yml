@@ -12,7 +12,7 @@
     state: directory
     mode: '0755'
 
-- name: Configure nginx reload after certificate renewal
+- name: Configure hook
   ansible.builtin.copy:
     dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
     content: |

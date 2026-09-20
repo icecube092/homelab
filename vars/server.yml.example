@@ -25,14 +25,15 @@ synapse:
       endpoint: "{{global.s3.endpoint}}"
       region: "{{global.s3.region}}"
       bucket_name: "{{global.s3.bucket_name}}"
-    wal-g:
+    walg:
       enabled: true
-      walg_s3_prefix: s3://{{synapse.backups.s3.bucket_name}}/walg/synapse
-      libsodium_key: {{ lookup('ansible.builtin.password', 'secrets/synapse-walg-libsodium.key length=64 chars=hexdigits') }} # 32-byte base64-encoded key for WAL-G encryption, stored in secrets/
+      s3_prefix: "s3://{{synapse.backups.s3.bucket_name}}/walg/synapse"
+      libsodium_key: "{{ lookup('ansible.builtin.password', 'secrets/synapse-walg-libsodium.key length=64 chars=hexdigits') }}" # 32-byte base64-encoded key for WAL-G encryption, stored in secrets/
       max_base_bakups: 2 # max number of base backups to keep
+      cron_schedule: "0 2 * * *"
     restic:
       enabled: true
-      password: {{ lookup('ansible.builtin.password', 'secrets/synapse-restic.key length=32 chars=ascii_letters,digits') }} # 32-character password for Restic, stored in secrets/
+      password: "{{ lookup('ansible.builtin.password', 'secrets/synapse-restic.key length=32 chars=ascii_letters,digits') }}" # 32-character password for Restic, stored in secrets/
       access_key_id: "{{synapse.backups.s3.key_id}}"
       secret_access_key: "{{synapse.backups.s3.app_key}}"
       repository: "s3:{{synapse.backups.s3.endpoint}}/{{synapse.backups.s3.bucket_name}}/restic/synapse"
@@ -82,14 +83,15 @@ immich:
       endpoint: "{{global.s3.endpoint}}"
       region: "{{global.s3.region}}"
       bucket_name: "{{global.s3.bucket_name}}"
-    wal-g:
+    walg:
       enabled: true
-      walg_s3_prefix: s3://{{immich.backups.s3.bucket_name}}/walg/immich
-      libsodium_key: {{ lookup('ansible.builtin.password', 'secrets/immich-walg-libsodium.key length=64 chars=hexdigits') }} # 32-byte base64-encoded key for WAL-G encryption, stored in secrets/
+      s3_prefix: "s3://{{immich.backups.s3.bucket_name}}/walg/immich"
+      libsodium_key: "{{ lookup('ansible.builtin.password', 'secrets/immich-walg-libsodium.key length=64 chars=hexdigits') }}" # 32-byte base64-encoded key for WAL-G encryption, stored in secrets/
       max_base_bakups: 2 # max number of base backups to keep
+      cron_schedule: "30 2 * * *"
     restic:
       enabled: true
-      password: {{ lookup('ansible.builtin.password', 'secrets/immich-restic.key length=32 chars=ascii_letters,digits') }} # 32-character password for Restic, stored in secrets/
+      password: "{{ lookup('ansible.builtin.password', 'secrets/immich-restic.key length=32 chars=ascii_letters,digits') }}" # 32-character password for Restic, stored in secrets/
       access_key_id: "{{immich.backups.s3.key_id}}"
       secret_access_key: "{{immich.backups.s3.app_key}}"
       repository: "s3:{{immich.backups.s3.endpoint}}/{{immich.backups.s3.bucket_name}}/restic/immich"

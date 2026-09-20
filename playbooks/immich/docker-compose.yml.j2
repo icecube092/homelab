@@ -66,20 +66,20 @@ services:
       POSTGRES_DB: {{immich.db_database_name}}
       POSTGRES_INITDB_ARGS: '--data-checksums'
       DB_STORAGE_TYPE: {{immich.db_storage_type}}
-{% if immich.wal-g.enabled %}
+{% if immich.backups.walg.enabled %}
       AWS_ACCESS_KEY_ID: {{immich.backups.s3.key_id}}
       AWS_SECRET_ACCESS_KEY: {{immich.backups.s3.app_key}}
       AWS_ENDPOINT: {{immich.backups.s3.endpoint}}
       AWS_REGION: {{immich.backups.s3.region}}
       AWS_S3_FORCE_PATH_STYLE: "true"
       WALG_COMPRESSION_METHOD: zstd
-      WALG_S3_PREFIX: {{immich.walg_s3_prefix}}
-      WALG_LIBSODIUM_KEY: {{immich.walg_libsodium_key}}
+      WALG_S3_PREFIX: {{immich.backups.walg.s3_prefix}}
+      WALG_LIBSODIUM_KEY: {{immich.backups.walg.libsodium_key}}
       WALG_LIBSODIUM_KEY_TRANSFORM: base64
 {% endif %}
     volumes:
       - {{immich.db_data_location}}:/var/lib/postgresql/data
-{% if immich.wal-g.enabled %}
+{% if immich.backups.walg.enabled %}
       - /opt/wal-g/wal-g:/usr/local/bin/wal-g:ro
       - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
 {% endif %}

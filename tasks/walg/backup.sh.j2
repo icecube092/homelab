@@ -1,0 +1,4 @@
+#!/bin/bash
+docker exec -u {{vars[service_name].db_username}} {{service_name}}_postgres bash wal-g backup-push /var/lib/postgresql/data
+docker exec -u {{vars[service_name].db_username}} {{service_name}}_postgres bash wal-g delete retain FULL {{vars[service_name].backups.walg.max_base_bakups}} --confirm
+docker exec -u {{vars[service_name].db_username}} {{service_name}}_postgres bash wal-g wal-verify integrity

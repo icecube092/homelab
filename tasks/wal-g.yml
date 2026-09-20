@@ -16,8 +16,29 @@
 
 - name: Download WAL-G
   ansible.builtin.get_url:
-    url: "https://github.com/wal-g/wal-g/releases/download/latest/wal-g-pg-20.04-{{ wal_g_arch }}"
+    url: "https://github.com/wal-g/wal-g/releases/download/v3.0.9/wal-g-pg-20.04-{{ wal_g_arch }}.tar.gz"
+    dest: /tmp/wal-g.tar.gz
+    owner: "{{ansible_user}}"
+    group: "{{ansible_user}}"
+    mode: "0755"
+
+- name: Create WAL-G directory
+  ansible.builtin.file:
+    path: /opt/wal-g
+    state: directory
+    mode: "0755"
+
+- name: Extract WAL-G
+  ansible.builtin.unarchive:
+    src: /tmp/wal-g.tar.gz
+    dest: /opt/wal-g
+    remote_src: true
+
+- name: Install WAL-G binary
+  ansible.builtin.copy:
+    src: /opt/wal-g/wal-g-pg-20.04-amd64
     dest: /opt/wal-g/wal-g
+    remote_src: true
     owner: root
     group: root
     mode: "0755"
@@ -26,27 +47,46 @@
   ansible.builtin.command:
     cmd: /opt/wal-g/wal-g --version
 
-- name: Exec SQL to enable WAL archiving
+- name: Check PostgreSQL archive_mode
   ansible.builtin.command:
-    cmd: |
-      docker exec -i {{service_name}}_postgres bash -c
-      "psql -U {{vars[service_name].db_username}} -d {{vars[service_name].db_database_name}} -c
-      \"ALTER SYSTEM SET archive_mode = 'on';
+    cmd: >
+      docker exec {{ service_name }}_postgres
+      psql
+      -U {{ vars[service_name].db_username }}
+      -d {{ vars[service_name].db_database_name }}
+      -tAc "SHOW archive_mode"
+  register: archive_mode
+  changed_when: false
+
+- name: Configure WAL archiving
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ service_name }}_postgres
+      psql
+      -U {{ vars[service_name].db_username }}
+      -d {{ vars[service_name].db_database_name }}
+    stdin: |
+      ALTER SYSTEM SET archive_mode = 'on';
       ALTER SYSTEM SET archive_command = 'wal-g wal-push %p';
       ALTER SYSTEM SET archive_timeout = '300';
-      ALTER SYSTEM SET wal_level = 'replica';\"
-      "
+      ALTER SYSTEM SET wal_level = 'replica';
+  when: archive_mode.stdout | trim != "on"
+
+- name: Restart PostgreSQL
+  ansible.builtin.command:
+    cmd: docker restart {{ service_name }}_postgres
+  when: archive_mode.stdout | trim != "on"
+
+- name: Check WAL-G from container
+  ansible.builtin.command:
+    cmd: docker exec {{ service_name }}_postgres wal-g --version
 
 - name: Create WAL-G base backup script
   template:
+    src: walg/backup.sh.j2
     dest: "{{local_apps_path}}/{{service_name}}/wal-g-backup.sh"
-    content: |
-      #!/bin/bash
-      docker exec -u {{vars[service_name].db_username}} {{service_name}}_postgres bash wal-g backup-push /var/lib/postgresql/data
-      docker exec -u {{vars[service_name].db_username}} {{service_name}}_postgres bash wal-g delete retain FULL {{vars[service_name].backups.wal-g.max_base_bakups}} --confirm
-      docker exec -u {{vars[service_name].db_username}} {{service_name}}_postgres bash wal-g wal-verify integrity
-    owner: root
-    group: root
+    owner: "{{ansible_user}}"
+    group: "{{ansible_user}}"
     mode: "0755"
 
 - name: Create WAL-G cron job
@@ -54,8 +94,8 @@
     name: "WAL-G backup for {{ service_name }}"
     user: "{{ansible_user}}"
     job: "{{local_apps_path}}/{{service_name}}/wal-g-backup.sh"
-    minute: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[0] }}"
-    hour: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[1] }}"
-    day: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[2] }}"
-    month: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[3] }}"
-    weekday: "{{ vars[service_name].backups.wal-g.cron_schedule.split(' ')[4] }}"
+    minute: "{{ vars[service_name].backups.walg.cron_schedule.split(' ')[0] }}"
+    hour: "{{ vars[service_name].backups.walg.cron_schedule.split(' ')[1] }}"
+    day: "{{ vars[service_name].backups.walg.cron_schedule.split(' ')[2] }}"
+    month: "{{ vars[service_name].backups.walg.cron_schedule.split(' ')[3] }}"
+    weekday: "{{ vars[service_name].backups.walg.cron_schedule.split(' ')[4] }}"
